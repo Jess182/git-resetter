@@ -25,6 +25,21 @@ function decodeOutput(output: Uint8Array): string {
 	return new TextDecoder().decode(output);
 }
 
+async function deleteDBHash(hash: string): Promise<void> {
+	const entries = kv.list<Record<string, string>>({
+		prefix: [...DB_KEY, hash],
+	});
+
+	let count = 0;
+
+	for await (const entry of entries) {
+		count++;
+		await kv.delete(entry.key);
+	}
+
+	console.info(`Deleted hash ${hash}: ${count} entries`);
+}
+
 function getBranchName(): string {
 	const branchArgs = ["branch", "--show-current"];
 
@@ -112,7 +127,7 @@ async function restore(hash: string, skip?: boolean): Promise<void> {
 }
 
 async function softReset(hash: string): Promise<void> {
-	const logArgs = ["log", "--pretty=%H-%s"];
+	const logArgs = ["log", "--pretty=%H---%s"];
 	const stashArgs = ["stash", "push", "-u", "-m"];
 	const resetArgs = ["reset", "--soft"];
 
@@ -135,7 +150,7 @@ async function softReset(hash: string): Promise<void> {
 		.trim()
 		.split("\n")
 		.map((line) => {
-			const [commitHash, message] = line.split("-");
+			const [commitHash, message] = line.split("---");
 			return { hash: commitHash, message: message.trim() };
 		});
 
@@ -184,6 +199,12 @@ if (import.meta.main) {
 		)
 		.option("-s, --skip", "Skip flag.")
 		.action((options, hash) => restore(hash, options.skip))
+		.command(
+			"delete-db-hash <hash:string>",
+			"Delete DB hash entries.",
+		)
+		.alias("dh")
+		.action((_, hash) => deleteDBHash(hash))
 		.parse(Deno.args)
 		.catch((error) => {
 			console.error("An error occurred while executing CLI:");
