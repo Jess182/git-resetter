@@ -58,9 +58,12 @@ async function restore(hash: string, skip?: boolean): Promise<void> {
 	const commitArgs = ["commit", "--no-verify", "-m"];
 	const stashDropArgs = ["stash", "drop", "stash@{0}"];
 
-	const entries = kv.list<Record<string, string>>({
-		prefix: [...DB_KEY, hash],
-	}, { reverse: true });
+	const entries = kv.list<Record<string, string>>(
+		{
+			prefix: [...DB_KEY, hash],
+		},
+		{ reverse: true },
+	);
 
 	let count = 0;
 
@@ -70,9 +73,9 @@ async function restore(hash: string, skip?: boolean): Promise<void> {
 
 		let output: Deno.CommandOutput;
 
-		const skipFlag = !skip || count; // Skip when flag is set and it's the first element on loop
+		const avoidSkip = !skip || count; // Skip when flag is set and it's the first element on loop
 
-		if (hash !== h && skipFlag) {
+		if (hash !== h && avoidSkip) {
 			console.info(`Restoring ${h} commit: ${message}`);
 
 			output = new Deno.Command(COMMAND, {
@@ -81,7 +84,7 @@ async function restore(hash: string, skip?: boolean): Promise<void> {
 
 			checkOutput(
 				output,
-				`Failed to restore changes: ${decodeOutput(output.stderr)}`,
+				`Failed to restore changes: ${decodeOutput(output.stdout)}`,
 			);
 		}
 
@@ -199,10 +202,7 @@ if (import.meta.main) {
 		)
 		.option("-s, --skip", "Skip flag.")
 		.action((options, hash) => restore(hash, options.skip))
-		.command(
-			"delete-db-hash <hash:string>",
-			"Delete DB hash entries.",
-		)
+		.command("delete-db-hash <hash:string>", "Delete DB hash entries.")
 		.alias("dh")
 		.action((_, hash) => deleteDBHash(hash))
 		.parse(Deno.args)
